@@ -1,26 +1,11 @@
 import os
-import json
 import hashlib
 import time
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
-
-def load_settings(file_path="settings.json"):
-    default_settings = {"max_tries": 4} 
-
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, 'r') as file:
-                settings = json.load(file)
-                return settings.get("max_tries", default_settings["max_tries"])
-        except (json.JSONDecodeError, FileNotFoundError):
-            print("")
-            return default_settings["max_tries"]
-    else:
-        print(f"ERROR: Settings file dosen't exist")
-        return default_settings["max_tries"]
-
+import settings  # Importa le impostazioni definite nel modulo settings.py
+import json
 def generate_key_from_password(password: str) -> bytes:
     return hashlib.sha256(password.encode()).digest()
 
@@ -51,15 +36,12 @@ def decrypt_message(encrypted_message: bytes, key: bytes) -> str:
     except ValueError:
         pass
 
-
-
 def readPsk(file_path: str) -> bytes:
     with open(file_path, 'rb') as file:
         return file.read()
 
-
 def save_lock_time(file_path="lock_time.json"):
-    lock_time_data = {"lock_time": int(time.time())}  
+    lock_time_data = {"lock_time": int(time.time())}
     with open(file_path, 'w') as file:
         json.dump(lock_time_data, file)
 
@@ -73,23 +55,22 @@ def load_lock_time(file_path="lock_time.json"):
             return None
     return None
 
-
 def check_lock_time():
     lock_time = load_lock_time()
     if lock_time:
         current_time = int(time.time())
-        block_time = lock_time % 60  
         time_elapsed = current_time - lock_time
 
-        if time_elapsed < block_time:
-            remaining_time = block_time - time_elapsed
+        if time_elapsed < settings.block_time:
+            remaining_time = settings.block_time - time_elapsed
             print(f"Blocked for {remaining_time} seconds.")
             time.sleep(remaining_time)
-            print("")
+            print("Block lifted. You can try again.")
         else:
-            print("")
+            print("Block has expired. You can try again.")
     else:
-        print("")
+        print("No block active.")
+
 def setPsk(action2):
     original_message = "BlacKat"
     password = input("Create a password: ")
@@ -101,11 +82,10 @@ def setPsk(action2):
 def kat256(action):
     check_lock_time()  
     psk_try = 0
-    max_tries = load_settings() 
 
     if os.path.exists("psk.txt"):
         encrypted_message = readPsk("psk.txt")
-        while psk_try < max_tries:
+        while psk_try < settings.max_tries:  # Usa max_tries da settings.py
             user_password = input("Password required: ")
             user_key = generate_key_from_password(user_password)
             try:
@@ -120,13 +100,12 @@ def kat256(action):
                 print(str(e))
                 psk_try += 1
 
-        if psk_try >= max_tries:
+        if psk_try >= settings.max_tries:
             print(f"Reached max tries")
             save_lock_time()  
-            block_time = int(time.time()) % 60  
-            print(f"Blocked for {block_time} seconds...")
-            time.sleep(block_time)  
-            print("")
+            print(f"Blocked for {settings.block_time} seconds...")  # Usa block_time da settings.py
+            time.sleep(settings.block_time)  
+            print("Block lifted. You can try again.")
     else:
         setPsk(action)
-
+ 
